@@ -10,7 +10,11 @@ class TestPersistent < Minitest::Test
     @valid_post = "POST / HTTP/1.1\r\nHost: test.com\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nhello"
     @valid_no_body = "GET / HTTP/1.1\r\nHost: test.com\r\nX-Status: 204\r\nContent-Type: text/plain\r\n\r\n"
 
-    @headers = { "X-Header" => "Works" }
+    @valid_post_chunked = "POST / HTTP/1.1\r\nHost: test.com\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n"
+    @valid_post_no_body_chunked = "POST / HTTP/1.1\r\nHost: test.com\r\nX-Status: 204\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
+    @valid_post_trailer_part_chunked = "POST / HTTP/1.1\r\nHost: test.com\r\nX-Status: 204\r\nTransfer-Encoding: chunked\r\n\r\n0\r\nX-Trailer: true\r\n\r\n"
+
+    @headers = {"X-Header" => "Works"}
     @body = ["Hello"]
     @inputs = []
 
@@ -36,7 +40,7 @@ class TestPersistent < Minitest::Test
     @server.stop(true)
   end
 
-  def lines(count, s=@client)
+  def lines(count, s = @client)
     str = "".dup
     Timeout.timeout(5) do
       count.times { str << s.gets }
@@ -78,6 +82,25 @@ class TestPersistent < Minitest::Test
 
     assert_equal "HTTP/1.1 200 OK\r\nX-Header: Works\r\nContent-Length: #{sz}\r\n\r\n", lines(4)
     assert_equal "Hello", @client.read(5)
+  end
+
+  def test_post_chunked
+    @client << @valid_post_chunked
+    sz = @body[0].size.to_s
+
+    assert_equal "HTTP/1.1 200 OK\r\nX-Header: Works\r\nContent-Length: #{sz}\r\n\r\n", lines(4)
+    assert_equal "Hello", @client.read(5)
+
+    @client << @valid_request
+    sz = @body[0].size.to_s
+
+    assert_equal "HTTP/1.1 200 OK\r\nX-Header: Works\r\nContent-Length: #{sz}\r\n\r\n", lines(4)
+    assert_equal "Hello", @client.read(5)
+
+    @client << @valid_post_trailer_part_chunked
+    sz = @body[0].size.to_s
+
+    assert_equal "HTTP/1.1 204 No Content\r\nX-Header: Works\r\n\r\n", lines(3)
   end
 
   def test_no_body_then_get
@@ -178,7 +201,7 @@ class TestPersistent < Minitest::Test
   end
 
   def test_allow_app_to_chunk_itself
-    @headers = {'Transfer-Encoding' => "chunked" }
+    @headers = {'Transfer-Encoding' => "chunked"}
 
     @body = ["5\r\nhello\r\n0\r\n\r\n"]
 

@@ -540,7 +540,7 @@ EOF
     @server.run
 
     sock = TCPSocket.new @host, @server.connected_port
-    sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nh\r\n4\r\nello\r\n0\r\n"
+    sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nh\r\n4\r\nello\r\n0\r\n\r\n"
 
     data = sock.read
 
@@ -562,7 +562,7 @@ EOF
     sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r\n"
     sleep 1
 
-    sock << "h\r\n4\r\nello\r\n0\r\n"
+    sock << "h\r\n4\r\nello\r\n0\r\n\r\n"
 
     data = sock.read
 
@@ -584,7 +584,7 @@ EOF
     sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nh\r\n"
     sleep 1
 
-    sock << "4\r\nello\r\n0\r\n"
+    sock << "4\r\nello\r\n0\r\n\r\n"
 
     data = sock.read
 
@@ -606,7 +606,7 @@ EOF
     sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r"
     sleep 1
 
-    sock << "\nh\r\n4\r\nello\r\n0\r\n"
+    sock << "\nh\r\n4\r\nello\r\n0\r\n\r\n"
 
     data = sock.read
 
@@ -628,7 +628,7 @@ EOF
     sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1"
     sleep 1
 
-    sock << "\r\nh\r\n4\r\nello\r\n0\r\n"
+    sock << "\r\nh\r\n4\r\nello\r\n0\r\n\r\n"
 
     data = sock.read
 
@@ -650,7 +650,7 @@ EOF
     sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nh\r\n4\r\ne"
     sleep 1
 
-    sock << "llo\r\n0\r\n"
+    sock << "llo\r\n0\r\n\r\n"
 
     data = sock.read
 
@@ -669,7 +669,7 @@ EOF
     @server.run
 
     sock = TCPSocket.new @host, @server.connected_port
-    sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: Chunked\r\n\r\n1\r\nh\r\n4\r\nello\r\n0\r\n"
+    sock << "GET / HTTP/1.1\r\nConnection: close\r\nTransfer-Encoding: Chunked\r\n\r\n1\r\nh\r\n4\r\nello\r\n0\r\n\r\n"
 
     data = sock.read
 

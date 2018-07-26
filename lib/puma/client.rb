@@ -19,7 +19,8 @@ end
 
 module Puma
 
-  class ConnectionError < RuntimeError; end
+  class ConnectionError < RuntimeError;
+  end
 
   # An instance of this class represents a unique request from a client.
   # For example a web request from a browser or from CURL. This
@@ -34,9 +35,9 @@ module Puma
   # They can be used to "time out" a response via the `timeout_at` reader.
   class Client
     include Puma::Const
-    extend  Puma::Delegation
+    extend Puma::Delegation
 
-    def initialize(io, env=nil)
+    def initialize(io, env = nil)
       @io = io
       @to_io = io.to_io
       @proto_env = env
@@ -92,7 +93,7 @@ module Puma
       @timeout_at = Time.now + val
     end
 
-    def reset(fast_check=true)
+    def reset(fast_check = true)
       @parser.reset
       @read_header = true
       @env = @proto_env.dup
@@ -108,12 +109,12 @@ module Puma
           return setup_body
         elsif @parsed_bytes >= MAX_HEADER
           raise HttpParserError,
-            "HEADER is longer than allowed, aborting client early."
+                "HEADER is longer than allowed, aborting client early."
         end
 
         return false
       elsif fast_check &&
-            IO.select([@to_io], nil, nil, FAST_TRACK_KA_TIMEOUT)
+        IO.select([@to_io], nil, nil, FAST_TRACK_KA_TIMEOUT)
         return try_to_finish
       end
     end
@@ -133,7 +134,8 @@ module Puma
     def setup_chunked_body(body)
       @chunked_body = true
       @partial_part_left = 0
-      @prev_chunk = ""
+      @prev_chunk = nil
+      @last_chunk = false
 
       @body = Tempfile.new(Const::PUMA_TMP_BASE)
       @body.binmode
@@ -143,65 +145,51 @@ module Puma
     end
 
     def decode_chunk(chunk)
-      if @partial_part_left > 0
-        if @partial_part_left <= chunk.size
-          @body << chunk[0..(@partial_part_left-3)] # skip the \r\n
-          chunk = chunk[@partial_part_left..-1]
-        else
-          @body << chunk
-          @partial_part_left -= chunk.size
-          return false
-        end
-      end
-
-      if @prev_chunk.empty?
-        io = StringIO.new(chunk)
+      if @prev_chunk
+        @prev_chunk << chunk
       else
-        io = StringIO.new(@prev_chunk+chunk)
-        @prev_chunk = ""
+        @prev_chunk = chunk
       end
 
-      while !io.eof?
-        line = io.gets
-        if line.end_with?("\r\n")
-          len = line.strip.to_i(16)
-          if len == 0
-            @body.rewind
-            rest = io.read
-            @buffer = rest.empty? ? nil : rest
-            @requests_served += 1
-            @ready = true
-            return true
+      while true
+        if @last_chunk
+          trailer_end = @prev_chunk.index("\r\n\r\n")
+          return false unless trailer_end
+          @prev_chunk = @prev_chunk[(trailer_end + 4)..-1]
+          @body.truncate(@body.pos)
+          @body.rewind
+          @buffer = @prev_chunk.empty? ? nil : @prev_chunk
+          @requests_served += 1
+          @ready = true
+          return true
+        end
+
+        if @partial_part_left > 0
+          bytes = [@partial_part_left, @prev_chunk.size].min
+          return false if bytes == 0
+          @body << @prev_chunk[0..bytes - 1]
+          @prev_chunk = @prev_chunk[bytes..-1]
+          @partial_part_left -= bytes
+
+          if @partial_part_left == 0
+            @body.pos = @body.pos - 2
+          else
+            return false
           end
+        end
 
-          len += 2
+        chunk_size_end = @prev_chunk.index("\r\n")
+        return false unless chunk_size_end
 
-          part = io.read(len)
-
-          unless part
-            @partial_part_left = len
-            next
-          end
-
-          got = part.size
-
-          case
-          when got == len
-            @body << part[0..-3] # to skip the ending \r\n
-          when got <= len - 2
-            @body << part
-            @partial_part_left = len - part.size
-          when got == len - 1 # edge where we get just \r but not \n
-            @body << part[0..-2]
-            @partial_part_left = len - part.size
-          end
+        @partial_part_left = @prev_chunk[0..chunk_size_end - 1].to_i(16)
+        if @partial_part_left == 0
+          @last_chunk = true
+          @prev_chunk = @prev_chunk[chunk_size_end..-1]
         else
-          @prev_chunk = line
-          return false
+          @partial_part_left += 2
+          @prev_chunk = @prev_chunk[(chunk_size_end + 2)..-1]
         end
       end
-
-      return false
     end
 
     def read_chunked_body
@@ -274,7 +262,7 @@ module Puma
       else
         # The body[0,0] trick is to get an empty string in the same
         # encoding as body.
-        @body = StringIO.new body[0,0]
+        @body = StringIO.new body[0, 0]
       end
 
       @body.write body
@@ -315,7 +303,7 @@ module Puma
         return setup_body
       elsif @parsed_bytes >= MAX_HEADER
         raise HttpParserError,
-          "HEADER is longer than allowed, aborting client early."
+              "HEADER is longer than allowed, aborting client early."
       end
 
       false
@@ -352,7 +340,7 @@ module Puma
           return setup_body
         elsif @parsed_bytes >= MAX_HEADER
           raise HttpParserError,
-            "HEADER is longer than allowed, aborting client early."
+                "HEADER is longer than allowed, aborting client early."
         end
 
         false
