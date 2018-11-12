@@ -37,7 +37,7 @@ module Puma
   class Server
 
     include Puma::Const
-    extend  Puma::Delegation
+    extend Puma::Delegation
 
     attr_reader :thread
     attr_reader :events
@@ -58,7 +58,7 @@ module Puma
     # Server#run returns a thread that you can join on to wait for the server
     # to do its work.
     #
-    def initialize(app, events=Events.stdio, options={})
+    def initialize(app, events = Events.stdio, options = {})
       @app = app
       @events = events
 
@@ -95,10 +95,10 @@ module Puma
 
     attr_accessor :binder, :leak_stack_on_error, :early_hints
 
-    forward :add_tcp_listener,  :@binder
-    forward :add_ssl_listener,  :@binder
+    forward :add_tcp_listener, :@binder
+    forward :add_ssl_listener, :@binder
     forward :add_unix_listener, :@binder
-    forward :connected_port,    :@binder
+    forward :connected_port, :@binder
 
     def inherit_binder(bind)
       @binder = bind
@@ -184,7 +184,7 @@ module Puma
 
     # Lopez Mode == raw tcp apps
 
-    def run_lopez_mode(background=true)
+    def run_lopez_mode(background = true)
       @thread_pool = ThreadPool.new(@min_threads,
                                     @max_threads,
                                     Hash) do |client, tl|
@@ -199,7 +199,7 @@ module Puma
           addr = "#{addr}:#{io.peeraddr[1]}"
         end
 
-        env = { 'thread' => tl, REMOTE_ADDR => addr }
+        env = {'thread' => tl, REMOTE_ADDR => addr}
 
         begin
           @app.call env, client.to_io
@@ -214,7 +214,7 @@ module Puma
       @events.fire :state, :running
 
       if background
-        @thread = Thread.new { handle_servers_lopez_mode }
+        @thread = Thread.new {handle_servers_lopez_mode}
         return @thread
       else
         handle_servers_lopez_mode
@@ -279,13 +279,14 @@ module Puma
 
       @events.fire :state, :done
     end
+
     # Runs the server.
     #
     # If +background+ is true (the default) then a thread is spun
     # up in the background to handle requests. Otherwise requests
     # are handled synchronously.
     #
-    def run(background=true)
+    def run(background = true)
       BasicSocket.do_not_reverse_lookup = true
 
       @events.fire :state, :booting
@@ -328,12 +329,14 @@ module Puma
 
           @events.parse_error self, client.env, e
         rescue ConnectionError, EOFError
+          @events.trace {{event: :closing, client: client.event_data}}
           client.close
         else
           if process_now
             process_client client, buffer
           else
             client.set_timeout @first_data_timeout
+            @events.trace {{event: :reactor, client: client.event_data}}
             @reactor.add client
           end
         end
@@ -357,7 +360,7 @@ module Puma
       @events.fire :state, :running
 
       if background
-        @thread = Thread.new { handle_servers }
+        @thread = Thread.new {handle_servers}
         return @thread
       else
         handle_servers
@@ -397,6 +400,7 @@ module Puma
                       client.remote_addr_header = remote_addr_header
                     end
 
+                    @events.trace {{event: :accepted, client: client.event_data}}
                     pool << client
                     pool.wait_until_not_full
                   end
@@ -405,6 +409,7 @@ module Puma
                 rescue Errno::ECONNABORTED
                   # client closed the socket even before accept
                   begin
+                    @events.trace {{event: :connaborted, client: client.event_data}}
                     io.close
                   rescue
                     Thread.current.purge_interrupt_queue if Thread.current.respond_to? :purge_interrupt_queue
@@ -486,17 +491,18 @@ module Puma
             unless client.reset(@status == :run)
               close_socket = false
               client.set_timeout @persistent_timeout
+              @events.trace {{event: :reactor, client: client.event_data}}
               @reactor.add client
               return
             end
           end
         end
 
-      # The client disconnected while we were reading data
+          # The client disconnected while we were reading data
       rescue ConnectionError
         # Swallow them. The ensure tries to close +client+ down
 
-      # SSL handshake error
+        # SSL handshake error
       rescue MiniSSL::SSLError => e
         lowlevel_error(e, client.env)
 
@@ -508,7 +514,7 @@ module Puma
 
         @events.ssl_error self, addr, cert, e
 
-      # The client doesn't know HTTP well
+          # The client doesn't know HTTP well
       rescue HttpParserError => e
         lowlevel_error(e, client.env)
 
@@ -516,7 +522,7 @@ module Puma
 
         @events.parse_error self, client.env, e
 
-      # Server error
+          # Server error
       rescue StandardError => e
         lowlevel_error(e, client.env)
 
@@ -531,7 +537,7 @@ module Puma
           client.close if close_socket
         rescue IOError, SystemCallError
           Thread.current.purge_interrupt_queue if Thread.current.respond_to? :purge_interrupt_queue
-          # Already closed
+            # Already closed
         rescue StandardError => e
           @events.unknown_error self, e, "Client"
         end
@@ -545,7 +551,7 @@ module Puma
       if host = env[HTTP_HOST]
         if colon = host.index(":")
           env[SERVER_NAME] = host[0, colon]
-          env[SERVER_PORT] = host[colon+1, host.bytesize]
+          env[SERVER_PORT] = host[colon + 1, host.bytesize]
         else
           env[SERVER_NAME] = host
           env[SERVER_PORT] = default_server_port(env)
@@ -609,6 +615,8 @@ module Puma
     # it up again.
     #
     def handle_request(req, lines)
+      @events.trace {{event: :servicing, client: req.event_data}}
+
       env = req.env
       client = req.io
 
@@ -630,10 +638,10 @@ module Puma
       head = env[REQUEST_METHOD] == HEAD
 
       env[RACK_INPUT] = body
-      env[RACK_URL_SCHEME] =  env[HTTPS_KEY] ? HTTPS : HTTP
+      env[RACK_URL_SCHEME] = env[HTTPS_KEY] ? HTTPS : HTTP
 
       if @early_hints
-        env[EARLY_HINTS] = lambda { |headers|
+        env[EARLY_HINTS] = lambda {|headers|
           fast_write client, "HTTP/1.1 103 Early Hints\r\n".freeze
 
           headers.each_pair do |k, vs|
@@ -697,40 +705,40 @@ module Puma
         colon = COLON
 
         http_11 = if env[HTTP_VERSION] == HTTP_11
-          allow_chunked = true
-          keep_alive = env.fetch(HTTP_CONNECTION, "").downcase != CLOSE
-          include_keepalive_header = false
+                    allow_chunked = true
+                    keep_alive = env.fetch(HTTP_CONNECTION, "").downcase != CLOSE
+                    include_keepalive_header = false
 
-          # An optimization. The most common response is 200, so we can
-          # reply with the proper 200 status without having to compute
-          # the response header.
-          #
-          if status == 200
-            lines << HTTP_11_200
-          else
-            lines.append "HTTP/1.1 ", status.to_s, " ",
-                         fetch_status_code(status), line_ending
+                    # An optimization. The most common response is 200, so we can
+                    # reply with the proper 200 status without having to compute
+                    # the response header.
+                    #
+                    if status == 200
+                      lines << HTTP_11_200
+                    else
+                      lines.append "HTTP/1.1 ", status.to_s, " ",
+                                   fetch_status_code(status), line_ending
 
-            no_body ||= status < 200 || STATUS_WITH_NO_ENTITY_BODY[status]
-          end
-          true
-        else
-          allow_chunked = false
-          keep_alive = env.fetch(HTTP_CONNECTION, "").downcase == KEEP_ALIVE
-          include_keepalive_header = keep_alive
+                      no_body ||= status < 200 || STATUS_WITH_NO_ENTITY_BODY[status]
+                    end
+                    true
+                  else
+                    allow_chunked = false
+                    keep_alive = env.fetch(HTTP_CONNECTION, "").downcase == KEEP_ALIVE
+                    include_keepalive_header = keep_alive
 
-          # Same optimization as above for HTTP/1.1
-          #
-          if status == 200
-            lines << HTTP_10_200
-          else
-            lines.append "HTTP/1.0 ", status.to_s, " ",
-                         fetch_status_code(status), line_ending
+                    # Same optimization as above for HTTP/1.1
+                    #
+                    if status == 200
+                      lines << HTTP_10_200
+                    else
+                      lines.append "HTTP/1.0 ", status.to_s, " ",
+                                   fetch_status_code(status), line_ending
 
-            no_body ||= status < 200 || STATUS_WITH_NO_ENTITY_BODY[status]
-          end
-          false
-        end
+                      no_body ||= status < 200 || STATUS_WITH_NO_ENTITY_BODY[status]
+                    end
+                    false
+                  end
 
         response_hijack = nil
 
@@ -819,15 +827,16 @@ module Puma
         req.tempfile.unlink if req.tempfile
         res_body.close if res_body.respond_to? :close
 
-        after_reply.each { |o| o.call }
+        after_reply.each {|o| o.call}
       end
 
       return keep_alive
     end
 
     def fetch_status_code(status)
-      HTTP_STATUS_CODES.fetch(status) { 'CUSTOM' }
+      HTTP_STATUS_CODES.fetch(status) {'CUSTOM'}
     end
+
     private :fetch_status_code
 
     # Given the request +env+ from +client+ and the partial body +body+
@@ -851,7 +860,7 @@ module Puma
       else
         # The body[0,0] trick is to get an empty string in the same
         # encoding as body.
-        stream = StringIO.new body[0,0]
+        stream = StringIO.new body[0, 0]
       end
 
       stream.write body
@@ -887,6 +896,8 @@ module Puma
     # A fallback rack response if +@app+ raises as exception.
     #
     def lowlevel_error(e, env)
+      @events.trace {{event: :lowlevel_error, message: e.message, class: e.class}}
+
       if handler = @options[:lowlevel_error_handler]
         if handler.arity == 1
           return handler.call(e)
@@ -913,8 +924,8 @@ module Puma
 
         $stdout.syswrite "#{pid}: === Begin thread backtrace dump ===\n"
 
-        threads.each_with_index do |t,i|
-          $stdout.syswrite "#{pid}: Thread #{i+1}/#{total}: #{t.inspect}\n"
+        threads.each_with_index do |t, i|
+          $stdout.syswrite "#{pid}: Thread #{i + 1}/#{total}: #{t.inspect}\n"
           $stdout.syswrite "#{pid}: #{t.backtrace.join("\n#{pid}: ")}\n\n"
         end
         $stdout.syswrite "#{pid}: === End thread backtrace dump ===\n"
@@ -955,7 +966,7 @@ module Puma
       begin
         @notify << message
       rescue IOError
-         # The server, in another thread, is shutting down
+        # The server, in another thread, is shutting down
         Thread.current.purge_interrupt_queue if Thread.current.respond_to? :purge_interrupt_queue
       rescue RuntimeError => e
         # Temporary workaround for https://bugs.ruby-lang.org/issues/13239
@@ -966,17 +977,18 @@ module Puma
         end
       end
     end
+
     private :notify_safely
 
     # Stops the acceptor thread and then causes the worker threads to finish
     # off the request queue before finally exiting.
 
-    def stop(sync=false)
+    def stop(sync = false)
       notify_safely(STOP_COMMAND)
       @thread.join if @thread && sync
     end
 
-    def halt(sync=false)
+    def halt(sync = false)
       notify_safely(HALT_COMMAND)
       @thread.join if @thread && sync
     end
@@ -996,7 +1008,7 @@ module Puma
           end
 
           retry
-        rescue  Errno::EPIPE, SystemCallError, IOError
+        rescue Errno::EPIPE, SystemCallError, IOError
           raise ConnectionError, "Socket timeout writing data"
         end
 
@@ -1004,6 +1016,7 @@ module Puma
         str = str.byteslice(n..-1)
       end
     end
+
     private :fast_write
 
     ThreadLocalKey = :puma_server

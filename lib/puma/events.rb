@@ -37,7 +37,7 @@ module Puma
 
       @debug = ENV.key? 'PUMA_DEBUG'
 
-      @hooks = Hash.new { |h,k| h[k] = [] }
+      @hooks = Hash.new {|h, k| h[k] = []}
     end
 
     attr_reader :stdout, :stderr
@@ -46,12 +46,12 @@ module Puma
     # Fire callbacks for the named hook
     #
     def fire(hook, *args)
-      @hooks[hook].each { |t| t.call(*args) }
+      @hooks[hook].each {|t| t.call(*args)}
     end
 
     # Register a callback for a given hook
     #
-    def register(hook, obj=nil, &blk)
+    def register(hook, obj = nil, &blk)
       if obj and blk
         raise "Specify either an object or a block, not both"
       end
@@ -109,18 +109,31 @@ module Puma
     # +server+ is the Server object, +error+ an exception object,
     # +kind+ some additional info, and +env+ the request.
     #
-    def unknown_error(server, error, kind="Unknown", env=nil)
+    def unknown_error(server, error, kind = "Unknown", env = nil)
       if error.respond_to? :render
         error.render "#{Time.now}: #{kind} error", @stderr
       else
         if env
-          string_block = [ "#{Time.now}: #{kind} error handling request { #{env['REQUEST_METHOD']} #{env['PATH_INFO']} }" ]
+          string_block = ["#{Time.now}: #{kind} error handling request { #{env['REQUEST_METHOD']} #{env['PATH_INFO']} }"]
           string_block << error.inspect
         else
-          string_block = [ "#{Time.now}: #{kind} error: #{error.inspect}" ]
+          string_block = ["#{Time.now}: #{kind} error: #{error.inspect}"]
         end
         string_block << error.backtrace
         @stderr.puts string_block.join("\n")
+      end
+    end
+
+    if ENV.key? 'PUMA_TRACE'
+      require 'json'
+      def trace(&block)
+        event = yield
+        event[:process_id] = $$
+        event[:thread_id] = Thread.current.object_id
+        @stdout.puts event.to_json rescue nil
+      end
+    else
+      def trace(&block)
       end
     end
 
