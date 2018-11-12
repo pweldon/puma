@@ -217,21 +217,23 @@ module Puma
               end
             end
           end
-        end
-
-        unless @timeouts.empty?
+        else
           @mutex.synchronize do
-            now = Time.now
+            unless @timeouts.empty?
+              now = Time.now
 
-            while @timeouts.first.timeout_at < now
-              c = @timeouts.shift
-              c.write_408 if c.in_data_phase
-              c.close
-              sockets.delete c
+              while @timeouts.first.timeout_at < now
+                break if IO.select([@timeouts.first], nil, nil, 0)
+                @events.log("timeout: #{@timeouts.first.inspect}")
+                c = @timeouts.shift
+                c.write_408 if c.in_data_phase
+                c.close
+                sockets.delete c
 
-              break if @timeouts.empty?
+                break if @timeouts.empty?
+              end
+
             end
-
             calculate_sleep
           end
         end
