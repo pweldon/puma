@@ -80,6 +80,18 @@ module Puma
       "#<Puma::Client:0x#{object_id.to_s(16)} @ready=#{@ready.inspect}>"
     end
 
+    def event_data
+      @event_data_peeraddr ||= @io.peeraddr
+      {
+        object_id: object_id,
+        peer: @event_data_peeraddr,
+        requests_served: @requests_served,
+        read_header: @read_header,
+        ready: @ready,
+        buffer_size: @buffer ? @buffer.size : 0
+      }
+    end
+
     # For the hijack protocol (allows us to just put the Client object
     # into the env)
     def call

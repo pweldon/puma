@@ -124,6 +124,11 @@ module Puma
       end
     end
 
+    def trace(event)
+      event[:thread_id] = Thread.current.object_id
+      @stdout.puts event.to_json
+    end
+
     def on_booted(&block)
       register(:on_booted, &block)
     end

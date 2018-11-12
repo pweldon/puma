@@ -302,6 +302,8 @@ module Puma
                                     @max_threads,
                                     IOBuffer) do |client, buffer|
 
+        @events.trace(event: :servicing, client: client.event_data)
+
         # Advertise this server into the thread
         Thread.current[ThreadLocalKey] = self
 
@@ -328,12 +330,14 @@ module Puma
 
           @events.parse_error self, client.env, e
         rescue ConnectionError, EOFError
+          @events.trace(event: :closing, client: client.event_data)
           client.close
         else
           if process_now
             process_client client, buffer
           else
             client.set_timeout @first_data_timeout
+            @events.trace(event: :reactor, client: client.event_data)
             @reactor.add client
           end
         end
@@ -397,6 +401,7 @@ module Puma
                       client.remote_addr_header = remote_addr_header
                     end
 
+                    @events.trace(event: :accepted, client: client.event_data)
                     pool << client
                     pool.wait_until_not_full
                   end
@@ -405,6 +410,7 @@ module Puma
                 rescue Errno::ECONNABORTED
                   # client closed the socket even before accept
                   begin
+                    @events.trace(event: :connaborted, client: client.event_data)
                     io.close
                   rescue
                     Thread.current.purge_interrupt_queue if Thread.current.respond_to? :purge_interrupt_queue
@@ -486,6 +492,7 @@ module Puma
             unless client.reset(@status == :run)
               close_socket = false
               client.set_timeout @persistent_timeout
+              @events.trace(event: :reactor, client: client.event_data)
               @reactor.add client
               return
             end

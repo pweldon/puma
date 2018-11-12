@@ -125,13 +125,14 @@ module Puma
 
       while true
         begin
+          @events.trace(event: :ioselect, num_sockets: sockets.size, sleep_for: @sleep_for)
           ready = IO.select sockets, nil, nil, @sleep_for
         rescue IOError => e
           Thread.current.purge_interrupt_queue if Thread.current.respond_to? :purge_interrupt_queue
-          if sockets.any? { |socket| socket.closed? }
+          if sockets.any? {|socket| socket.closed?}
             STDERR.puts "Error in select: #{e.message} (#{e.class})"
             STDERR.puts e.backtrace
-            sockets = sockets.reject { |socket| socket.closed? }
+            sockets = sockets.reject {|socket| socket.closed?}
             retry
           else
             raise
@@ -171,20 +172,21 @@ module Puma
 
               begin
                 if c.try_to_finish
+                  @events.trace(event: :queuing, client: c.event_data)
                   @app_pool << c
                   sockets.delete c
                 end
 
-              # Don't report these to the lowlevel_error handler, otherwise
-              # will be flooding them with errors when persistent connections
-              # are closed.
+                  # Don't report these to the lowlevel_error handler, otherwise
+                  # will be flooding them with errors when persistent connections
+                  # are closed.
               rescue ConnectionError
                 c.write_500
                 c.close
 
                 sockets.delete c
 
-              # SSL handshake failure
+                  # SSL handshake failure
               rescue MiniSSL::SSLError => e
                 @server.lowlevel_error(e, c.env)
 
@@ -197,7 +199,7 @@ module Puma
 
                 @events.ssl_error @server, addr, cert, e
 
-              # The client doesn't know HTTP well
+                  # The client doesn't know HTTP well
               rescue HttpParserError => e
                 @server.lowlevel_error(e, c.env)
 
@@ -224,7 +226,7 @@ module Puma
 
               while @timeouts.first.timeout_at < now
                 break if IO.select([@timeouts.first], nil, nil, 0)
-                @events.log("timeout: #{@timeouts.first.inspect}")
+                @events.trace(event: :timeout, client: @timeouts.first.event_data)
                 c = @timeouts.shift
                 c.write_408 if c.in_data_phase
                 c.close
@@ -237,6 +239,7 @@ module Puma
             calculate_sleep
           end
         end
+
       end
     end
 
@@ -320,7 +323,7 @@ module Puma
 
         if c.timeout_at
           @timeouts << c
-          @timeouts.sort! { |a,b| a.timeout_at <=> b.timeout_at }
+          @timeouts.sort! {|a, b| a.timeout_at <=> b.timeout_at}
 
           calculate_sleep
         end
