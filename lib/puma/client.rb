@@ -88,7 +88,7 @@ module Puma
         requests_served: @requests_served,
         read_header: @read_header,
         ready: @ready,
-        buffer_size: @buffer ? @buffer.size : 0
+        env: @env,
       }
     end
 

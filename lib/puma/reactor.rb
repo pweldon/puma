@@ -181,6 +181,7 @@ module Puma
                   # will be flooding them with errors when persistent connections
                   # are closed.
               rescue ConnectionError
+                @events.trace(event: :connectionerror, client: c.event_data)
                 c.write_500
                 c.close
 

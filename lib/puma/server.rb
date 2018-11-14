@@ -894,6 +894,8 @@ module Puma
     # A fallback rack response if +@app+ raises as exception.
     #
     def lowlevel_error(e, env)
+      @events.trace(event: :lowlevel_error, message: e.message, class: e.class)
+
       if handler = @options[:lowlevel_error_handler]
         if handler.arity == 1
           return handler.call(e)
