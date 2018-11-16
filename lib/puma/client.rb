@@ -88,6 +88,7 @@ module Puma
         requests_served: @requests_served,
         read_header: @read_header,
         ready: @ready,
+        timeout_at: @timeout_at,
         env: @env,
       }
     end
