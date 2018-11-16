@@ -302,8 +302,6 @@ module Puma
                                     @max_threads,
                                     IOBuffer) do |client, buffer|
 
-        @events.trace(event: :servicing, client: client.event_data)
-
         # Advertise this server into the thread
         Thread.current[ThreadLocalKey] = self
 
@@ -616,6 +614,8 @@ module Puma
     # it up again.
     #
     def handle_request(req, lines)
+      @events.trace(event: :servicing, client: req.event_data)
+
       env = req.env
       client = req.io
 
