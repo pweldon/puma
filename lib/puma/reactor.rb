@@ -33,7 +33,7 @@ module Puma
   # A detailed example is given in the docs for `run_internal` which is where the bulk
   # of this logic lives.
   class Reactor
-    DefaultSleepFor = 5
+    DefaultSleepFor = nil
 
     # Creates an instance of Puma::Reactor
     #
