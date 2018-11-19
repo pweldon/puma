@@ -148,7 +148,7 @@ module Puma
     # them
     #
     def persistent_timeout(seconds)
-      @options[:persistent_timeout] = Integer(seconds)
+      @options[:persistent_timeout] = seconds ? Integer(seconds) : false
     end
 
     # Define how long the tcp socket stays open, if no data has been received

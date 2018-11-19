@@ -64,7 +64,11 @@ module Puma
     end
 
     def fetch(key, default_value = nil)
-      self[key] || default_value
+      if user_options.key?(key) || file_options.key?(key) || default_options.key?(key)
+        self[key]
+      else
+        default_value
+      end
     end
 
     def all_of(key)
