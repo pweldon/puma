@@ -101,7 +101,7 @@ module Puma
     end
 
     def set_timeout(val)
-      @timeout_at = Time.now + val
+      @timeout_at = val ? Time.now + val : nil
     end
 
     def reset(fast_check=true)

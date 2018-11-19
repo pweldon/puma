@@ -196,7 +196,7 @@ module Puma
     # Define how long persistent connections can be idle before Puma closes
     # them.
     def persistent_timeout(seconds)
-      @options[:persistent_timeout] = Integer(seconds)
+      @options[:persistent_timeout] = seconds ? Integer(seconds) : false
     end
 
     # Define how long the tcp socket stays open, if no data has been received.
